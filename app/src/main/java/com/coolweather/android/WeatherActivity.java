@@ -6,11 +6,15 @@ import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import android.annotation.SuppressLint;
 import android.app.Instrumentation;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -44,22 +48,40 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 public class WeatherActivity extends AppCompatActivity {
-    private ScrollView weatherLayout;
-    private TextView titleCity;
-    private TextView titleUpdateTime;
-    private TextView degreeText;
-    private TextView weatherInfoText;
-    private LinearLayout forecastLayout;
-    private TextView aqiText;
-    private TextView pm25Text;
-    private TextView comfortText;
-    private TextView carWashText;
-    private TextView sportsText;
-    private ImageView bingPicImg;
+    private static ScrollView weatherLayout;
+    private static TextView titleCity;
+//    private static TextView titleUpdateTime;
+    private static TextView degreeText;
+    private static TextView weatherInfoText;
+    private static LinearLayout forecastLayout;
+    private static TextView aqiText;
+    private static TextView pm25Text;
+    private static TextView comfortText;
+    private static TextView carWashText;
+    private static TextView sportsText;
+    private static ImageView bingPicImg;
     public SwipeRefreshLayout swipeRefresh;
-    private String mWeatherId;
+    private static String mWeatherId;
     public DrawerLayout drawerLayout;
     private Button navButton;
+    private Button settingButton;
+    public static Handler handler = new Handler(new Handler.Callback() {
+        @Override
+        public boolean handleMessage(@NonNull Message msg) {
+            if(msg.what == 1){
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(MyApplication.getContext());
+                String weatherString = prefs.getString("weather",null);
+                    Weather weather = Utility.handleWeatherResponse(weatherString);
+                    mWeatherId = weather.basic.weatherId;
+                    showWeatherInfo(weather);
+                    String bingPic = prefs.getString("bing_pic",null);
+                    Glide.with(MyApplication.getContext()).load(bingPic).into(bingPicImg);
+            }
+            return false;
+        }
+    });
+
+    @SuppressLint("ResourceAsColor")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -72,8 +94,8 @@ public class WeatherActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_weather);
         weatherLayout = (ScrollView) findViewById(R.id.weather_layout);
-        titleCity = (TextView) findViewById(R.id.titlr_city);
-        titleUpdateTime = (TextView)findViewById(R.id.title_update_time);
+        titleCity = (TextView) findViewById(R.id.title_city);
+//        titleUpdateTime = (TextView)findViewById(R.id.title_update_time);
         degreeText = (TextView) findViewById(R.id.degree_text);
         weatherInfoText = (TextView) findViewById(R.id.weather_info_text);
         forecastLayout = (LinearLayout)findViewById(R.id.forecast_layout);
@@ -87,6 +109,7 @@ public class WeatherActivity extends AppCompatActivity {
         swipeRefresh.setColorSchemeColors(R.color.white);
         drawerLayout = (DrawerLayout)findViewById(R.id.drawer_layout);
         navButton = (Button)findViewById(R.id.nav_button);
+        settingButton = (Button)findViewById(R.id.setting_button);
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather",null);
@@ -94,6 +117,7 @@ public class WeatherActivity extends AppCompatActivity {
             Weather weather = Utility.handleWeatherResponse(weatherString);
             mWeatherId = weather.basic.weatherId;
             showWeatherInfo(weather);
+
         } else {
             mWeatherId = getIntent().getStringExtra("weather_id");
             weatherLayout.setVisibility(View.INVISIBLE);
@@ -109,6 +133,7 @@ public class WeatherActivity extends AppCompatActivity {
             @Override
             public void onRefresh() {
                 requestWeather(mWeatherId);
+                loadBingPic();
             }
         });
         navButton.setOnClickListener(new View.OnClickListener() {
@@ -117,18 +142,22 @@ public class WeatherActivity extends AppCompatActivity {
                 drawerLayout.openDrawer(GravityCompat.START);
             }
         });
+        settingButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(WeatherActivity.this, SettingActivity.class);
+                startActivity(intent);
+
+            }
+        });
+
     }
 
     private void loadBingPic() {
         String requestBingPic = "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1";
-        //https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=zh-CN
-        //http://guolin.tech/api/bing_pic
-        //https://cn.bing.com/sa/simg/hpb/LaDigue_EN-CA1115245085_1920x1080.jpg
-
         HttpUtil.sendOkHttpRequest(requestBingPic, new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                Log.d("Tag","Failure");
                 e.printStackTrace();
             }
             @Override
@@ -185,18 +214,18 @@ public class WeatherActivity extends AppCompatActivity {
             }
         });
     }
-    private void showWeatherInfo(Weather weather) {
+    private static void showWeatherInfo(Weather weather) {
         String cityName = weather.basic.cityName;
         String updateTime = weather.basic.update.updataTime.split(" ")[1];
         String degree = weather.now.temperature + "℃";
         String weatherInfo = weather.now.more.info;
         titleCity.setText(cityName);
-        titleUpdateTime.setText(updateTime);
+//        titleUpdateTime.setText(updateTime);
         degreeText.setText(degree);
         weatherInfoText.setText(weatherInfo);
         forecastLayout.removeAllViews();;
         for(Forecast forecast : weather.forecastList){
-            View view = LayoutInflater.from(this).inflate(R.layout.forecast_item,forecastLayout,false);
+            View view = LayoutInflater.from(MyApplication.getContext()).inflate(R.layout.forecast_item,forecastLayout,false);
             TextView dateText = (TextView) view.findViewById(R.id.date_text);
             TextView infoText = (TextView) view.findViewById(R.id.info_text);
             TextView maxText = (TextView) view.findViewById(R.id.max_text);
@@ -218,6 +247,5 @@ public class WeatherActivity extends AppCompatActivity {
         carWashText.setText(carWash);
         sportsText.setText(sport);
         weatherLayout.setVisibility(View.VISIBLE);
-
     }
 }

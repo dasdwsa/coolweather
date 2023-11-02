@@ -43,6 +43,7 @@ dependencies {
     implementation(files("libs\\litepal-2.0.0.jar"))
     implementation("com.github.bumptech.glide:glide:4.6.1")
     implementation("androidx.room:room-common:2.5.2")
+    implementation(files("libs\\QWeather_Public_Android_V4.17.jar"))
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
